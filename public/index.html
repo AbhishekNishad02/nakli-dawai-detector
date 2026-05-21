@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NakliDawai Detector — Fake Medicine Detection AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0f0a;--surface:#111811;--surface2:#162016;
+  --green:#2ECC71;--green2:#27ae60;--red:#e74c3c;--yellow:#f39c12;
+  --text:#e8f5e9;--muted:#7a9e7a;--border:#1e2e1e;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+.app{max-width:960px;margin:0 auto;padding:28px 20px;}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:44px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:38px;height:38px;background:var(--green);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-text{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;}
+.logo-text span{color:var(--green);}
+.badge{font-size:10px;background:rgba(46,204,113,0.12);color:var(--green);padding:5px 12px;border-radius:20px;border:1px solid rgba(46,204,113,0.25);letter-spacing:1px;}
+.hero{text-align:center;margin-bottom:44px;}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(30px,5.5vw,52px);font-weight:800;line-height:1.05;letter-spacing:-2px;margin-bottom:14px;}
+.hero h1 span{color:var(--green);}
+.hero p{color:var(--muted);font-size:16px;max-width:500px;margin:0 auto;line-height:1.65;}
+.stats{display:flex;gap:12px;justify-content:center;margin-bottom:44px;flex-wrap:wrap;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 22px;text-align:center;}
+.stat-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--green);}
+.stat-label{font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:0.3px;}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:5px;margin-bottom:20px;}
+.tab{flex:1;padding:10px;text-align:center;border-radius:8px;cursor:pointer;font-size:13px;font-family:'Syne',sans-serif;font-weight:600;color:var(--muted);transition:all .2s;border:none;background:transparent;}
+.tab.active{background:var(--green);color:#0a0f0a;}
+.page{display:none;} .page.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:26px;margin-bottom:16px;}
+.card-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:20px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:640px){.grid2{grid-template-columns:1fr;}}
+.scan-zone{border:2px dashed var(--border);border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;transition:all .3s;}
+.scan-zone:hover,.scan-zone.dragover{border-color:var(--green);background:rgba(46,204,113,0.04);}
+.scan-icon{font-size:40px;margin-bottom:12px;display:block;}
+.scan-text strong{color:var(--text);display:block;font-size:15px;margin-bottom:6px;}
+.scan-text{color:var(--muted);font-size:13px;line-height:1.5;}
+#file-input{display:none;}
+#preview-box{display:none;margin-top:14px;border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+#preview-box img{width:100%;max-height:180px;object-fit:cover;display:block;}
+#preview-label{padding:8px 14px;font-size:12px;color:var(--muted);background:var(--surface2);}
+.divider{text-align:center;color:var(--muted);font-size:12px;margin:16px 0;position:relative;}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:44%;height:1px;background:var(--border);}
+.divider::before{left:0;}.divider::after{right:0;}
+.input-row{display:flex;gap:8px;}
+input[type=text],input[type=tel],textarea,select{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border .2s;width:100%;}
+input[type=text]:focus,input[type=tel]:focus,textarea:focus,select:focus{border-color:rgba(46,204,113,0.5);}
+input::placeholder,textarea::placeholder{color:var(--muted);}
+select option{background:var(--surface2);color:var(--text);}
+textarea{resize:vertical;min-height:80px;}
+.btn{background:var(--green);color:#0a0f0a;border:none;border-radius:10px;padding:11px 22px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:0.5px;white-space:nowrap;}
+.btn:hover{background:var(--green2);transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn-full{width:100%;margin-top:14px;padding:14px;font-size:14px;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.btn-outline:hover{border-color:var(--green);color:var(--green);}
+.btn-danger{background:var(--red);color:#fff;}
+.btn-danger:hover{background:#c0392b;}
+.quick-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.spinner{display:none;text-align:center;padding:24px;}
+.spin{width:30px;height:30px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.spin-text{font-size:13px;color:var(--muted);}
+.result-box{display:none;border-radius:12px;padding:20px;margin-top:14px;border:1px solid;}
+.result-box.genuine{background:rgba(46,204,113,0.08);border-color:rgba(46,204,113,0.3);}
+.result-box.fake{background:rgba(231,76,60,0.08);border-color:rgba(231,76,60,0.3);}
+.result-box.suspicious{background:rgba(243,156,18,0.08);border-color:rgba(243,156,18,0.3);}
+.result-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.result-icon{font-size:26px;}
+.result-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
+.result-title.genuine{color:var(--green);}
+.result-title.fake{color:var(--red);}
+.result-title.suspicious{color:var(--yellow);}
+.result-details div{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;}
+.result-details div:last-child{border:none;}
+.result-details span:first-child{color:var(--muted);}
+.result-details span:last-child{color:var(--text);font-weight:500;}
+.conf-bar{margin-top:14px;}
+.conf-label{font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;}
+.conf-track{height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.conf-fill{height:100%;border-radius:3px;transition:width 1.2s ease;}
+.chat-messages{height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:14px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.55;animation:fadeUp .3s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.msg.bot{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px 12px 12px 12px;align-self:flex-start;}
+.msg.user{background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.2);color:var(--text);align-self:flex-end;border-radius:12px 4px 12px 12px;}
+.msg.typing span{display:inline-block;width:6px;height:6px;background:var(--muted);border-radius:50%;margin:0 2px;animation:bounce .8s infinite;}
+.msg.typing span:nth-child(2){animation-delay:.15s;}
+.msg.typing span:nth-child(3){animation-delay:.3s;}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+@media(max-width:500px){.metric-grid{grid-template-columns:1fr;}}
+.metric{background:var(--surface2);border-radius:10px;padding:16px;text-align:center;}
+.metric-num{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;}
+.metric-label{font-size:11px;color:var(--muted);margin-top:3px;}
+.hotspot-item{display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:8px;padding:11px 14px;margin-bottom:8px;}
+.hotspot-name{font-size:13px;min-width:130px;}
+.bar-wrap{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:2px;background:var(--red);}
+.hotspot-count{font-size:11px;color:var(--muted);min-width:65px;text-align:right;}
+.form-group{margin-bottom:14px;}
+.form-label{font-size:12px;color:var(--muted);margin-bottom:6px;display:block;letter-spacing:0.5px;}
+.toast{position:fixed;bottom:28px;right:28px;background:var(--green);color:#0a0f0a;padding:13px 22px;border-radius:10px;font-size:13px;font-weight:500;transform:translateY(80px);opacity:0;transition:all .35s;z-index:100;font-family:'Syne',sans-serif;max-width:320px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{background:var(--red);color:#fff;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">💊</div>
+      <div class="logo-text">Nakli<span>Dawai</span></div>
+    </div>
+    <div class="badge">AI POWERED</div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Detect <span>Fake Medicines</span><br>Instantly with AI</h1>
+    <p>Protecting rural India from counterfeit drugs using computer vision, crowdsourced verification & AI.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-num">25%</div><div class="stat-label">Medicines Are Fake</div></div>
+    <div class="stat"><div class="stat-num">1.4B</div><div class="stat-label">People at Risk</div></div>
+    <div class="stat"><div class="stat-num" id="scan-count">0</div><div class="stat-label">Scans Today</div></div>
+    <div class="stat"><div class="stat-num">90%</div><div class="stat-label">AI Accuracy</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('scanner',this)">🔍 Scanner</button>
+    <button class="tab" onclick="showTab('chat',this)">🤖 AI Chat</button>
+    <button class="tab" onclick="showTab('dashboard',this)">📊 Dashboard</button>
+    <button class="tab" onclick="showTab('report',this)">🚨 Report</button>
+  </div>
+
+  <!-- SCANNER PAGE -->
+  <div class="page active" id="page-scanner">
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Scan Medicine</div>
+        <div class="scan-zone" id="scan-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+          <span class="scan-icon">📸</span>
+          <div class="scan-text">
+            <strong>Upload Medicine Photo</strong>
+            Drag & drop or click to upload<br>packaging, strip or bottle
+          </div>
+        </div>
+        <input type="file" id="file-input" accept="image/*" onchange="handleFile(this.files[0])">
+        <button onclick="startCamera()" style="margin-top:10px;padding:10px 20px;background:#6c63ff;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;width:100%;">📷 Live Camera Scan</button>
+        <video id="camera-feed" style="display:none;width:100%;border-radius:12px;margin-top:10px;" autoplay></video>
+        <canvas id="ocr-canvas" style="display:none;"></canvas>
+        <div id="preview-box">
+          <img id="preview-img" src="" alt="Medicine preview">
+          <div id="preview-label">📦 Medicine image uploaded</div>
+        </div>
+        <div class="divider">or enter batch number</div>
+        <div class="input-row">
+          <input type="text" id="batch-input" placeholder="e.g. BN2024UP0341">
+          <button class="btn" onclick="scanBatch()">Scan</button>
+        </div>
+        <div class="quick-btns">
+          <button class="btn-outline" onclick="tryDemo('BN2024UP0341')">✅ Real Medicine</button>
+          <button class="btn-outline" onclick="tryDemo('FAKE-XY9999')">❌ Fake Medicine</button>
+          <button class="btn-outline" onclick="tryDemo('LOC-MP2024')">⚠️ Local Brand</button>
+          <button class="btn-outline" onclick="tryDemo('JA2024001')">🏥 Jan Aushadhi</button>
+        </div>
+        <div class="spinner" id="spinner"><div class="spin"></div><div class="spin-text">AI analyzing medicine...</div></div>
+        <div class="result-box" id="result-box"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">How It Works</div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;gap:14px;align-items:flex-start;">
+            <div style="width:36px;height:36px;background:rgba(46,204,113,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📸</div>
+            <div><div style="font-size:14px;font-weight:500;margin-bottom:4px;">Upload Photo or Enter Batch</div><div style="font-size:12px;color:var(--muted);line-height:1.5;">Take a photo of the medicine packaging or enter the batch number printed on the strip.</div></div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start;">
+            <div style="width:36px;height:36px;background:rgba(46,204,113,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🤖</div>
+            <div><div style="font-size:14px;font-weight:500;margin-bottom:4px;">AI Analyzes Instantly</div><div style="font-size:12px;color:var(--muted);line-height:1.5;">Our AI checks CDSCO database, community reports, hologram patterns and batch number validity.</div></div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start;">
+            <div style="width:36px;height:36px;background:rgba(46,204,113,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">✅</div>
+            <div><div style="font-size:14px;font-weight:500;margin-bottom:4px;">Get Instant Result</div><div style="font-size:12px;color:var(--muted);line-height:1.5;">See if medicine is Genuine, Suspicious or Fake — with confidence score and recommended action.</div></div>
+          </div>
+          <div style="display:flex;gap:14px;align-items:flex-start;">
+            <div style="width:36px;height:36px;background:rgba(46,204,113,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🚨</div>
+            <div><div style="font-size:14px;font-weight:500;margin-bottom:4px;">Auto Report to CDSCO</div><div style="font-size:12px;color:var(--muted);line-height:1.5;">Fake medicines are automatically flagged and reported to India's Central Drug Authority.</div></div>
+          </div>
+        </div>
+        <div style="margin-top:20px;background:var(--surface2);border-radius:10px;padding:14px;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">DATABASES CHECKED</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <span style="font-size:11px;background:rgba(46,204,113,0.1);color:var(--green);padding:4px 10px;border-radius:20px;border:1px solid rgba(46,204,113,0.2);">CDSCO Official</span>
+            <span style="font-size:11px;background:rgba(46,204,113,0.1);color:var(--green);padding:4px 10px;border-radius:20px;border:1px solid rgba(46,204,113,0.2);">Community DB</span>
+            <span style="font-size:11px;background:rgba(46,204,113,0.1);color:var(--green);padding:4px 10px;border-radius:20px;border:1px solid rgba(46,204,113,0.2);">Visual AI</span>
+            <span style="font-size:11px;background:rgba(46,204,113,0.1);color:var(--green);padding:4px 10px;border-radius:20px;border:1px solid rgba(46,204,113,0.2);">Jan Aushadhi</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT PAGE -->
+  <div class="page" id="page-chat">
+    <div class="card">
+      <div class="card-title">AI Medicine Safety Assistant</div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg bot">👋 Namaste! I'm your NakliDawai AI assistant. Ask me anything about medicine safety, fake drugs, or how to protect yourself and your family!</div>
+      </div>
+      <div class="quick-btns" style="margin-bottom:10px;">
+        <button class="btn-outline" onclick="sendQuick('How do I detect a fake medicine?')">How to detect fakes?</button>
+        <button class="btn-outline" onclick="sendQuick('What are the most common fake medicines in India?')">Common fakes in India</button>
+        <button class="btn-outline" onclick="sendQuick('What should I do if I find a fake medicine?')">Found a fake?</button>
+        <button class="btn-outline" onclick="sendQuick('How does your AI verify medicines?')">How does AI work?</button>
+      </div>
+      <div class="input-row">
+        <input type="text" id="chat-input" placeholder="Ask about medicine safety..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD PAGE -->
+  <div class="page" id="page-dashboard">
+    <div class="card">
+      <div class="card-title">India Fake Medicine Dashboard</div>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-num" style="color:var(--red)" id="total-reports">0</div>
+          <div class="metric-label">Total Reports</div>
+        </div>
+        <div class="metric">
+          <div class="metric-num" style="color:var(--yellow)" id="states-affected">0</div>
+          <div class="metric-label">States Affected</div>
+        </div>
+        <div class="metric">
+          <div class="metric-num" style="color:var(--green)" id="cases-resolved">0</div>
+          <div class="metric-label">Cases Resolved</div>
+        </div>
+      </div>
+      <div class="card-title" style="margin-top:8px;">Hotspot States</div>
+      <div id="hotspot-list">
+        <div style="text-align:center;color:var(--muted);padding:20px;">No reports yet — submit a report to see hotspots! 📍</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Most Counterfeited Medicines</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;"><div style="font-size:14px;font-weight:500;">Paracetamol</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">38% of all reports</div><div style="height:3px;background:var(--red);border-radius:2px;margin-top:8px;width:80%;"></div></div>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;"><div style="font-size:14px;font-weight:500;">Antibiotics</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">24% of all reports</div><div style="height:3px;background:var(--yellow);border-radius:2px;margin-top:8px;width:60%;"></div></div>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;"><div style="font-size:14px;font-weight:500;">Diabetes Meds</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">18% of all reports</div><div style="height:3px;background:var(--yellow);border-radius:2px;margin-top:8px;width:45%;"></div></div>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;"><div style="font-size:14px;font-weight:500;">Blood Pressure</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">12% of all reports</div><div style="height:3px;background:var(--green);border-radius:2px;margin-top:8px;width:30%;"></div></div>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;"><div style="font-size:14px;font-weight:500;">Vitamins</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">8% of all reports</div><div style="height:3px;background:var(--green);border-radius:2px;margin-top:8px;width:20%;"></div></div>
+        <div style="background:var(--surface2);border-radius:10px;padding:14px;"><div style="font-size:14px;font-weight:500;">Cancer Medicines</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">5% of all reports</div><div style="height:3px;background:var(--red);border-radius:2px;margin-top:8px;width:12%;"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Live Stats</div>
+      <div id="live-stats" style="font-size:13px;color:var(--muted);text-align:center;padding:10px;">Loading...</div>
+    </div>
+  </div>
+
+  <!-- REPORT PAGE -->
+  <div class="page" id="page-report">
+    <div class="card">
+      <div class="card-title">Report a Suspicious Medicine</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6;">Found a suspicious medicine? Report it here. Your report goes directly to CDSCO and helps protect others.</p>
+      <div class="form-group">
+        <label class="form-label">BATCH NUMBER / MEDICINE NAME</label>
+        <input type="text" id="report-batch" placeholder="e.g. BN2024UP0341 or Paracetamol 500mg">
+      </div>
+      <div class="form-group">
+        <label class="form-label">YOUR LOCATION (CITY)</label>
+        <input type="text" id="report-location" placeholder="e.g. Haldwani">
+      </div>
+      <div class="form-group">
+        <label class="form-label">SELECT STATE</label>
+        <select id="report-state">
+          <option value="">-- Select State --</option>
+          <option>Uttar Pradesh</option>
+          <option>Madhya Pradesh</option>
+          <option>Bihar</option>
+          <option>Rajasthan</option>
+          <option>Uttarakhand</option>
+          <option>Maharashtra</option>
+          <option>West Bengal</option>
+          <option>Jharkhand</option>
+          <option>Odisha</option>
+          <option>Chhattisgarh</option>
+          <option>Punjab</option>
+          <option>Haryana</option>
+          <option>Gujarat</option>
+          <option>Assam</option>
+          <option>Delhi</option>
+          <option>Karnataka</option>
+          <option>Tamil Nadu</option>
+          <option>Andhra Pradesh</option>
+          <option>Telangana</option>
+          <option>Kerala</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">WHERE DID YOU BUY IT?</label>
+        <input type="text" id="report-shop" placeholder="Pharmacy name or market name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">DESCRIBE THE PROBLEM</label>
+        <textarea id="report-desc" placeholder="e.g. Hologram missing, wrong color, packaging looks different..."></textarea>
+      </div>
+      <button class="btn btn-full btn-danger" onclick="submitReport()">🚨 Submit Report to CDSCO</button>
+      <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center;">Reports are verified before public action. Your identity is protected.</p>
+    </div>
+    <div class="card" id="report-success" style="display:none;border-color:rgba(46,204,113,0.3);background:rgba(46,204,113,0.05);">
+      <div style="text-align:center;padding:10px;">
+        <div style="font-size:40px;margin-bottom:12px;">✅</div>
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--green);margin-bottom:8px;">Report Submitted!</div>
+        <div style="font-size:13px;color:var(--muted);">Your report has been sent to CDSCO.</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px;">Case ID: <span id="case-id" style="color:var(--green);font-weight:500;"></span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:3000/api';
+let chatHistory = [];
+let scanCount = 0;
+
+// Tab switching
+function showTab(tab, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'dashboard') loadLiveStats();
+}
+
+// Demo shortcuts
+function tryDemo(batch) {
+  document.getElementById('batch-input').value = batch;
+  scanBatch();
+}
+
+// File handling
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('preview-box').style.display = 'block';
+    document.getElementById('preview-label').textContent = '📦 ' + file.name;
+  };
+  reader.readAsDataURL(file);
+  scanImage(file);
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('scan-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleFile(file);
+}
+
+// Scan by batch number
+async function scanBatch() {
+  const batch = document.getElementById('batch-input').value.trim();
+  if (!batch) { showToast('Please enter a batch number', 'error'); return; }
+  showSpinner(true);
+  hideResult();
+  try {
+    const res = await fetch(API + '/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch })
+    });
+    const data = await res.json();
+    showSpinner(false);
+    showResult(data);
+    scanCount++;
+    document.getElementById('scan-count').textContent = scanCount.toLocaleString();
+  } catch (e) {
+    showSpinner(false);
+    showToast('Server not responding. Run: node server.js', 'error');
+  }
+}
+
+// Scan by image
+async function scanImage(file) {
+  showSpinner(true);
+  hideResult();
+  const formData = new FormData();
+  formData.append('medicine', file);
+  try {
+    const res = await fetch(API + '/scan-image', { method: 'POST', body: formData });
+    const data = await res.json();
+    showSpinner(false);
+    showResult(data);
+  } catch (e) {
+    showSpinner(false);
+    showToast('Server not responding. Run: node server.js', 'error');
+  }
+}
+
+// Show result
+function showResult(data) {
+  const box = document.getElementById('result-box');
+  const statusMap = {
+    genuine: { icon: '✅', title: 'MEDICINE IS GENUINE', color: '#2ECC71' },
+    fake: { icon: '🚨', title: 'FAKE MEDICINE DETECTED', color: '#e74c3c' },
+    suspicious: { icon: '⚠️', title: 'UNVERIFIED — USE CAUTION', color: '#f39c12' }
+  };
+  const s = data.status || 'suspicious';
+  const sm = statusMap[s] || statusMap.suspicious;
+  const fillColor = s === 'genuine' ? '#2ECC71' : s === 'fake' ? '#e74c3c' : '#f39c12';
+  const action = s === 'genuine' ? 'Safe to use ✅' : s === 'fake' ? 'DO NOT consume — Report now 🚨' : 'Avoid if possible — Verify first ⚠️';
+  const sourceTag = data.source ? `<div><span>Source</span><span>${data.source}</span></div>` : '';
+
+  box.className = 'result-box ' + s;
+  box.innerHTML = `
+    <div class="result-header">
+      <span class="result-icon">${sm.icon}</span>
+      <span class="result-title ${s}">${sm.title}</span>
+    </div>
+    <div class="result-details">
+      <div><span>Medicine</span><span>${data.name || 'Unknown'}</span></div>
+      <div><span>Manufacturer</span><span>${data.manufacturer || 'Unknown'}</span></div>
+      <div><span>Batch Number</span><span>${data.batch || 'N/A'}</span></div>
+      <div><span>Expiry</span><span>${data.expiry || 'N/A'}</span></div>
+      <div><span>Hologram</span><span>${data.hologram || 'N/A'}</span></div>
+      <div><span>CDSCO Status</span><span>${data.cdsco || 'Unknown'}</span></div>
+      ${sourceTag}
+      <div><span>Action</span><span>${action}</span></div>
+    </div>
+    <div class="conf-bar">
+      <div class="conf-label"><span>AI Confidence Score</span><span>${data.confidence || 70}%</span></div>
+      <div class="conf-track"><div class="conf-fill" id="conf-fill" style="width:0%;background:${fillColor}"></div></div>
+    </div>`;
+  box.style.display = 'block';
+  setTimeout(() => {
+    document.getElementById('conf-fill').style.width = (data.confidence || 70) + '%';
+  }, 100);
+
+  const toastMsg = s === 'genuine' ? '✅ Genuine medicine verified!' : s === 'fake' ? '🚨 FAKE medicine detected! Reporting...' : '⚠️ Unverified medicine — be careful!';
+  showToast(toastMsg, s === 'fake' ? 'error' : '');
+
+  if (s === 'fake') {
+    setTimeout(() => fetch(API + '/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch: data.batch, location: 'Auto-detected', state: 'Unknown', description: 'Auto-reported by AI scan' })
+    }), 1500);
+  }
+}
+
+// Chat
+async function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  addMsg(msg, 'user');
+  chatHistory.push({ role: 'user', content: msg });
+  await getBotReply(msg);
+}
+
+function sendQuick(msg) {
+  addMsg(msg, 'user');
+  chatHistory.push({ role: 'user', content: msg });
+  getBotReply(msg);
+}
+
+function addMsg(text, role) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+async function getBotReply(userMsg) {
+  const box = document.getElementById('chat-messages');
+  const typing = document.createElement('div');
+  typing.className = 'msg bot typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  box.appendChild(typing);
+  box.scrollTop = box.scrollHeight;
+
+  try {
+    const res = await fetch(API + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: userMsg, history: chatHistory.slice(-6) })
+    });
+    const data = await res.json();
+    typing.remove();
+    const reply = data.reply || 'Sorry, could not get response!';
+    addMsg(reply, 'bot');
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    typing.remove();
+    addMsg('Server not connected. Start server with: node server.js', 'bot');
+  }
+}
+
+// Report
+async function submitReport() {
+  const batch = document.getElementById('report-batch').value.trim();
+  const location = document.getElementById('report-location').value.trim();
+  const state = document.getElementById('report-state').value;
+  const desc = document.getElementById('report-desc').value.trim();
+
+  if (!batch || !location || !state) {
+    showToast('Please fill batch, location and select state', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(API + '/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ batch, location, state, description: desc })
+    });
+    const data = await res.json();
+    document.getElementById('case-id').textContent = data.message.split(': ')[1];
+    document.getElementById('report-success').style.display = 'block';
+    showToast('Report submitted to CDSCO! ✅');
+    loadLiveStats();
+  } catch (e) {
+    showToast('Server not responding', 'error');
+  }
+}
+
+// Dashboard live stats
+async function loadLiveStats() {
+  try {
+    const res = await fetch(API + '/hotspots');
+    const data = await res.json();
+
+    document.getElementById('total-reports').textContent = data.stats.totalReports;
+    document.getElementById('states-affected').textContent = data.stats.statesAffected;
+    document.getElementById('cases-resolved').textContent = data.stats.resolved;
+
+    const list = document.getElementById('hotspot-list');
+    if (data.hotspots.length === 0) {
+      list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">No reports yet — submit a report to see hotspots! 📍</div>';
+      document.getElementById('live-stats').innerHTML = '<div style="text-align:center;color:var(--muted);padding:10px;">No data yet — submit a report first!</div>';
+      return;
+    }
+
+    list.innerHTML = data.hotspots.map(h => `
+      <div class="hotspot-item">
+        <span class="hotspot-name">📍 ${h.state}</span>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${h.percent}%"></div></div>
+        <span class="hotspot-count">${h.reports} reports</span>
+      </div>
+    `).join('');
+
+    document.getElementById('live-stats').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
+        <div><div style="font-size:20px;font-weight:700;color:var(--red)">${data.stats.totalReports}</div><div style="font-size:11px;color:var(--muted);">Total Reports</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--yellow)">${data.stats.statesAffected}</div><div style="font-size:11px;color:var(--muted);">States</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--green)">${data.stats.resolved}</div><div style="font-size:11px;color:var(--muted);">Resolved</div></div>
+      </div>`;
+
+  } catch(e) {
+    console.log('Stats error:', e);
+  }
+}
+
+// Auto refresh dashboard every 5 seconds
+setInterval(() => {
+  if (document.getElementById('page-dashboard').classList.contains('active')) {
+    loadLiveStats();
+  }
+}, 5000);
+
+// Helpers
+function showSpinner(show) { document.getElementById('spinner').style.display = show ? 'block' : 'none'; }
+function hideResult() { const b = document.getElementById('result-box'); b.style.display = 'none'; b.className = 'result-box'; }
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type === 'error' ? ' error' : '') + ' show';
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Camera OCR
+async function startCamera() {
+  const video = document.getElementById('camera-feed');
+  video.style.display = 'block';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    setTimeout(async () => {
+      const canvas = document.getElementById('ocr-canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      stream.getTracks().forEach(t => t.stop());
+      video.style.display = 'none';
+      const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
+      const batchMatch = text.match(/[A-Z]{2,4}[\-]?[0-9]{4,}/);
+      if (batchMatch) {
+        document.getElementById('batch-input').value = batchMatch[0];
+        scanBatch();
+      } else {
+        alert('Batch number nahi mila — manually daalo!');
+      }
+    }, 3000);
+  } catch(err) {
+    alert('Camera access do browser mein! (' + err.message + ')');
+  }
+}
+</script>
+</body>
+</html>
